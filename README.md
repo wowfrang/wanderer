@@ -64,7 +64,19 @@ You already have a paid Apple Developer account (the App Store Connect app *Wand
 
 Builds installed this way with a paid account last a year.
 
-### Option B: TestFlight (works when the Mac isn't with you)
+### Option B: TestFlight from GitHub Actions (no Mac needed)
+
+`.github/workflows/testflight.yml` runs on every push to `main` (Markdown-only changes are skipped) and can be started by hand from the Actions tab. It runs the core tests, then archives, signs and uploads to TestFlight on a GitHub macOS runner. Signing is cloud-managed through an App Store Connect API key, so no certificates or profiles are stored anywhere.
+
+One-time setup:
+
+1. App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → **+**, role **Admin** (needed so Xcode can create the distribution certificate). Download the `.p8` (only possible once) and note the **Key ID** and **Issuer ID**.
+2. GitHub → wowfrang/wanderer → Settings → Secrets and variables → Actions → add `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the full file contents) and `APPLE_TEAM_ID`.
+3. App Store Connect → Wanderer → TestFlight: create an Internal Testing group with yourself and enable automatic distribution. Install the TestFlight app on the phone.
+
+Builds appear in TestFlight roughly 15 minutes after a push (runner + Apple processing). macOS runner minutes count 10× against private-repo Actions quotas.
+
+### Option C: TestFlight from your Mac
 
 1. In App Store Connect → Wanderer → **TestFlight**, add yourself under Internal Testing (create a group, add your Apple ID).
 2. Install the **TestFlight** app on the phone and sign in with the same Apple ID.
@@ -72,11 +84,17 @@ Builds installed this way with a paid account last a year.
 
 The first upload may ask you to accept agreements in App Store Connect, or to answer the export compliance question (already answered as "no" via `ITSAppUsesNonExemptEncryption`).
 
+### Battery
+
+GPS is the expensive part, so by default it runs **only while Wanderer is open on screen** during an active day. Put the phone away and GPS switches off completely. The motion coprocessor keeps counting steps and walking distance (CMPedometer, negligible battery), and when you take the phone out again the path continues in a new segment. Gaps are drawn as a faint dotted link. If you're standing at a planned place when you open the app, a banner offers a one-tap **Visited**.
+
+**Settings → Battery → Track with the screen locked** switches on pocket tracking for days you want the full trace and automatic visits: GPS continues with the screen locked at ~10 m accuracy, a 15 m distance filter and automatic pausing. It uses noticeably more battery.
+
 ### Permissions on first start
 
-- **Location: Allow While Using App** is enough. Tracking keeps running with the screen locked because it starts in the foreground with background location enabled (blue pill in the status bar). Keep **Precise Location** on.
+- **Location: Allow While Using App** is enough, also for the optional pocket tracking (it starts in the foreground with background location enabled, shown as the blue pill in the status bar). Keep **Precise Location** on.
 - **Motion & Fitness** for steps. If declined, steps show as "–"; they're never estimated.
-- **Notifications** (optional): a silent notification when a visit is detected while the phone is locked.
+- **Notifications** (optional, pocket tracking only): a silent notification when a visit is detected while the phone is locked.
 
 ## Development
 
@@ -127,6 +145,7 @@ The walked path drops fixes worse than 40 m, steps shorter than 6 m (standing-st
 ## Limitations and what needs a real device
 
 - **Untested on a device yet**: background tracking, pedometer, visit detection thresholds and battery use can only be validated by walking around. Expect to tune the detection settings.
-- If iOS terminates the app in the background (rare, under memory pressure), tracking stops until you reopen it; the session resumes with a gap. Fixing this needs "Always" location and significant-change monitoring.
+- With pocket tracking off (the default), visits are only detected while the app is open; the walked distance in the pocket comes from the pedometer, and the drawn path has dotted gaps.
+- If iOS terminates the app in the background, tracking stops until you reopen it; the session resumes with a gap.
 - MKDirections is rate limited (roughly 50 requests a minute). Big days fetch legs one by one; failures show dotted lines and retry later.
 - Google Maps short links (`maps.app.goo.gl`) are expanded over the network; very long Google routes that embed place IDs without coordinates are geocoded by name.
