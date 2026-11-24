@@ -22,6 +22,8 @@ final class LiveSession {
     private(set) var events: [VisitEvent] = []
 
     private(set) var currentLocation: CLLocation?
+    /// Which way the phone points (degrees from north); nil when unknown.
+    private(set) var heading: Double?
     private(set) var steps: Int?
     private(set) var pedometerDistance: Double?
     private var stepsBase = Pedometer.Reading(steps: 0, distance: nil)
@@ -77,6 +79,7 @@ final class LiveSession {
 
     private func configureServices() {
         tracker.onLocations = { [weak self] locations in self?.handle(locations) }
+        tracker.onHeading = { [weak self] degrees in self?.heading = degrees }
         tracker.onAuthorizationChange = { [weak self] status in
             guard let self else { return }
             self.locationDenied = status == .denied || status == .restricted
@@ -96,11 +99,15 @@ final class LiveSession {
     private var isForeground = true
 
     /// Chooses the cheapest location mode that serves what's needed right now.
+    /// On screen: precise location and compass (also while paused, for navigating; paused fixes
+    /// aren't recorded). In the pocket: nothing, or cheap tracking if opted in.
     private func updateTracking() {
-        guard session.status == .active else { tracker.stop(); return }
+        guard session.status != .finished else { tracker.stop(); return }
         if isForeground {
             tracker.startForeground()
-        } else if model.settings.backgroundTracking {
+            tracker.startHeading()
+        } else if session.status == .active && model.settings.backgroundTracking {
+            tracker.stopHeading()
             tracker.startBackground()
         } else {
             tracker.stop()
@@ -264,7 +271,7 @@ final class LiveSession {
         try? engine.pause()
         pedometer.stopLive()
         sync()
-        updateTracking() // paused: GPS off
+        updateTracking() // paused: nothing is recorded; location stays on only while on screen
         Task { await refreshSteps() }
     }
 

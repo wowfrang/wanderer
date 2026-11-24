@@ -29,6 +29,10 @@ final class AppSettings {
     var backgroundTracking: Bool {
         didSet { defaults.set(backgroundTracking, forKey: "backgroundTracking") }
     }
+    /// Satellite imagery with labels instead of the standard map.
+    var satellite: Bool {
+        didSet { defaults.set(satellite, forKey: "satellite") }
+    }
     var notifyOnVisit: Bool {
         didSet { defaults.set(notifyOnVisit, forKey: "notifyOnVisit") }
     }
@@ -45,6 +49,7 @@ final class AppSettings {
         mapsApp = MapsApp(rawValue: defaults.string(forKey: "mapsApp") ?? "") ?? .apple
         notifyOnVisit = defaults.object(forKey: "notifyOnVisit") as? Bool ?? true
         backgroundTracking = defaults.bool(forKey: "backgroundTracking")
+        satellite = defaults.bool(forKey: "satellite")
     }
 
     private func save<T: Encodable>(_ value: T, key: String) {

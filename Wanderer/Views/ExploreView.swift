@@ -10,6 +10,8 @@ struct ExploreView: View {
     let live: LiveSession
 
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+    /// The map's current rotation, so the heading beam points the right way on a rotated map.
+    @State private var cameraHeading: Double = 0
     @State private var expanded = false
     @State private var panelHeight: CGFloat = 0
     @State private var confirmFinish = false
@@ -96,7 +98,7 @@ struct ExploreView: View {
             // Remaining plan: quiet, dashed.
             ForEach(Array(live.remainingLegs.enumerated()), id: \.offset) { _, leg in
                 MapPolyline(coordinates: leg.points.map(\.cl))
-                    .stroke(Color.plannedRoute.opacity(0.7), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round, dash: [2, 7]))
+                    .stroke(MapLayer.plannedRoute(satellite: model.settings.satellite).opacity(0.8), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round, dash: [2, 7]))
             }
             // You → next stop.
             ForEach(live.legToNext.map { [$0] } ?? [], id: \.self) { leg in
@@ -120,9 +122,20 @@ struct ExploreView: View {
                 }
                 .annotationTitles(live.nextPlaceId == place.id ? .visible : .hidden)
             }
-            UserAnnotation()
+            // Own user dot so it can carry a heading beam (which way the phone points).
+            ForEach(live.currentLocation.map { [Coordinate($0.coordinate)] } ?? [], id: \.self) { here in
+                Annotation("", coordinate: here.cl, anchor: .center) {
+                    UserDot(heading: live.heading.map { $0 - cameraHeading },
+                            accuracy: live.currentLocation?.horizontalAccuracy ?? 0,
+                            stale: live.isPaused == false && live.currentLocation.map { Date().timeIntervalSince($0.timestamp) > 120 } == true)
+                }
+                .annotationTitles(.hidden)
+            }
         }
-        .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
+        .mapStyle(MapLayer.style(satellite: model.settings.satellite))
+        .onMapCameraChange(frequency: .continuous) { context in
+            cameraHeading = context.camera.heading
+        }
         .mapControls {
             MapCompass()
             MapScaleView()
@@ -156,7 +169,7 @@ struct ExploreView: View {
     // MARK: Overlays
 
     private var topBar: some View {
-        HStack {
+        HStack(alignment: .top) {
             CircleButton(systemName: "chevron.down", label: "Minimise") { model.liveMinimized = true }
             Spacer()
             if live.isPaused {
@@ -167,12 +180,9 @@ struct ExploreView: View {
                     .background(.regularMaterial, in: Capsule())
             }
             Spacer()
-            HStack(spacing: 8) {
-                CircleButton(systemName: "square.dashed", label: "Show overview") { overview() }
-                CircleButton(systemName: "location", label: "Follow me") {
-                    withAnimation { position = .userLocation(fallback: .automatic) }
-                }
-            }
+            MapButtons(position: $position, satellite: Binding(get: { model.settings.satellite },
+                                                               set: { model.settings.satellite = $0 }),
+                       overview: overview)
         }
         .padding(.top, 4)
     }
@@ -320,6 +330,93 @@ struct ExploreView: View {
         if place.coordinate != nil {
             Button("Directions in \(model.settings.mapsApp.title)") { ExternalMaps.openDirections(to: place, using: model.settings.mapsApp) }
         }
+    }
+}
+
+/// Map controls stacked like Apple Maps: imagery, location mode, overview.
+private struct MapButtons: View {
+    @Binding var position: MapCameraPosition
+    @Binding var satellite: Bool
+    let overview: () -> Void
+
+    private var mode: Int { position.followsUserHeading ? 2 : (position.followsUserLocation ? 1 : 0) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            button(satellite ? "map" : "globe.europe.africa", label: satellite ? "Standard map" : "Satellite") {
+                satellite.toggle()
+            }
+            Divider().frame(width: 28)
+            button(["location", "location.fill", "location.north.line.fill"][mode],
+                   label: ["Follow me", "Follow with heading", "Follow without heading"][mode]) {
+                withAnimation {
+                    switch mode {
+                    case 0: position = .userLocation(fallback: .automatic)
+                    case 1: position = .userLocation(followsHeading: true, fallback: .automatic)
+                    default: position = .userLocation(fallback: .automatic)
+                    }
+                }
+            }
+            Divider().frame(width: 28)
+            button("square.dashed", label: "Show overview", action: overview)
+        }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.1), radius: 4, y: 1)
+        .sensoryFeedback(.selection, trigger: mode)
+        .sensoryFeedback(.selection, trigger: satellite)
+    }
+
+    private func button(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+/// Blue location dot with a compass beam, like Google Maps / Apple Maps.
+struct UserDot: View {
+    /// Beam direction in degrees, relative to the map's up direction. nil hides the beam.
+    let heading: Double?
+    let accuracy: Double
+    var stale = false
+
+    var body: some View {
+        ZStack {
+            if let heading {
+                HeadingBeam()
+                    .fill(RadialGradient(colors: [Color.blue.opacity(0.45), Color.blue.opacity(0)],
+                                         center: .center, startRadius: 4, endRadius: 46))
+                    .frame(width: 92, height: 92)
+                    .rotationEffect(.degrees(heading))
+                    .animation(.easeOut(duration: 0.25), value: heading)
+            }
+            Circle()
+                .fill(Color.white)
+                .frame(width: 20, height: 20)
+                .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            Circle()
+                .fill(stale ? Color.gray : Color.blue)
+                .frame(width: 14, height: 14)
+        }
+        .frame(width: 92, height: 92)
+        .allowsHitTesting(false)
+    }
+}
+
+/// A 70° wedge pointing up from the centre.
+struct HeadingBeam: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        p.move(to: c)
+        p.addArc(center: c, radius: rect.width / 2, startAngle: .degrees(-90 - 35), endAngle: .degrees(-90 + 35), clockwise: false)
+        p.closeSubpath()
+        return p
     }
 }
 

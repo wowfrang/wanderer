@@ -13,6 +13,8 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     var onLocations: (([CLLocation]) -> Void)?
     var onAuthorizationChange: ((CLAuthorizationStatus) -> Void)?
+    /// Compass heading in degrees from true north (magnetic if true north is unavailable).
+    var onHeading: ((Double) -> Void)?
     private(set) var isTracking = false
 
     override init() {
@@ -52,7 +54,18 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
         isTracking = true
     }
 
+    /// Compass for the heading beam. Only while the app is on screen.
+    func startHeading() {
+        guard CLLocationManager.headingAvailable() else { return }
+        manager.headingFilter = 4
+        manager.headingOrientation = .portrait
+        manager.startUpdatingHeading()
+    }
+
+    func stopHeading() { manager.stopUpdatingHeading() }
+
     func stop() {
+        manager.stopUpdatingHeading()
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
         isTracking = false
@@ -60,6 +73,12 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         MainActor.assumeIsolated { onLocations?(locations) }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        guard newHeading.headingAccuracy >= 0 else { return }
+        let degrees = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        MainActor.assumeIsolated { onHeading?(degrees) }
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

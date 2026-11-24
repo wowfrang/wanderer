@@ -122,3 +122,16 @@ enum PathGaps {
         }
     }
 }
+
+enum MapLayer {
+    static func style(satellite: Bool) -> MapStyle {
+        satellite
+            ? .hybrid(elevation: .flat, pointsOfInterest: .excludingAll)
+            : .standard(emphasis: .muted, pointsOfInterest: .excludingAll)
+    }
+
+    /// The planned route needs to be light on aerial imagery and dark on the map.
+    static func plannedRoute(satellite: Bool) -> Color {
+        satellite ? Color.white.opacity(0.9) : Color.plannedRoute
+    }
+}

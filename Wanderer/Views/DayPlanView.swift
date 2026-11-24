@@ -52,6 +52,7 @@ struct DayPlanView: View {
                         .disabled(located.count < 4)
                     Button("Edit day…") { editingDay = day }
                     Button("Fit map") { fit(located) }
+                    Button(model.settings.satellite ? "Standard map" : "Satellite map") { model.settings.satellite.toggle() }
                 } label: { Image(systemName: "ellipsis.circle") }
             }
         }
@@ -100,7 +101,7 @@ struct DayPlanView: View {
                 UserAnnotation()
                 ForEach(Array(legs.enumerated()), id: \.offset) { _, leg in
                     MapPolyline(coordinates: leg.points.map(\.cl))
-                        .stroke(Color.plannedRoute, style: leg.isWalkingRoute
+                        .stroke(MapLayer.plannedRoute(satellite: model.settings.satellite), style: leg.isWalkingRoute
                                 ? StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
                                 : StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 7]))
                 }
@@ -115,7 +116,9 @@ struct DayPlanView: View {
                     Marker("New place", coordinate: pin.cl).tint(Color.signal)
                 }
             }
-            .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .including([.museum, .park, .publicTransport, .cafe, .restaurant])))
+            .mapStyle(model.settings.satellite
+                      ? .hybrid(elevation: .flat, pointsOfInterest: .including([.museum, .park, .publicTransport]))
+                      : .standard(emphasis: .muted, pointsOfInterest: .including([.museum, .park, .publicTransport, .cafe, .restaurant])))
             .mapControls {
                 MapUserLocationButton()
                 MapCompass()
