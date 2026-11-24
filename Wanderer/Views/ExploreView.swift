@@ -99,7 +99,7 @@ struct ExploreView: View {
                     .stroke(Color.plannedRoute.opacity(0.7), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round, dash: [2, 7]))
             }
             // You → next stop.
-            if let leg = live.legToNext {
+            ForEach(live.legToNext.map { [$0] } ?? [], id: \.self) { leg in
                 MapPolyline(coordinates: leg.points.map(\.cl))
                     .stroke(Color.signal.opacity(0.55), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round, dash: [1, 8]))
             }

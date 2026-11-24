@@ -111,7 +111,7 @@ struct DayPlanView: View {
                     }
                     .annotationTitles(.hidden)
                 }
-                if let pin = droppedPin {
+                ForEach(droppedPin.map { [$0] } ?? [], id: \.self) { pin in
                     Marker("New place", coordinate: pin.cl).tint(Color.signal)
                 }
             }
@@ -149,7 +149,7 @@ struct DayPlanView: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                if let day, let title = DayFormat.title(day) { Eyebrow(title) }
+                if let d = day, let title = DayFormat.title(d) { Eyebrow(title) }
                 HStack(spacing: 6) {
                     Text(places.count == 1 ? "1 place" : "\(places.count) places")
                     if distance > 0 {

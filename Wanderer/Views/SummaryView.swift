@@ -134,19 +134,25 @@ private struct SummaryMap: View {
             }
             ForEach(Array(engine.places.enumerated()).filter { $0.element.coordinate != nil }, id: \.element.id) { index, place in
                 Annotation(place.name, coordinate: place.coordinate!.cl, anchor: .center) {
-                    MarkerView(number: index + 1, state: {
-                        switch statuses[place.id] ?? .pending {
-                        case .visited: return .visited
-                        case .skipped: return .skipped
-                        case .pending: return .planned
-                        }
-                    }())
+                    MarkerView(number: index + 1, state: markerState(statuses[place.id]))
                 }
                 .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
-        .onAppear {
+        .onAppear(perform: fit)
+    }
+
+    private func markerState(_ status: PlaceStatus?) -> MarkerState {
+        switch status ?? .pending {
+        case .visited: return .visited
+        case .skipped: return .skipped
+        case .pending: return .planned
+        }
+    }
+
+    private func fit() {
+        do {
             var coords = engine.path.flatMap { $0 }
             if coords.count < 2 { coords += engine.places.compactMap(\.coordinate) }
             if let p = MapFit.position(coords) { position = p }

@@ -21,15 +21,17 @@ final class AppModel {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         let path = url.appendingPathComponent("wanderer.sqlite").path
         let store: Store
+        var openError: String?
         do {
             store = try Store(path: path)
         } catch {
             // Never delete the user's data on a failed open; fall back to memory and say so.
-            startupError = "Couldn't open the database: \(error). Nothing will be saved this run."
+            openError = "Couldn't open the database: \(error). Nothing will be saved this run."
             store = try! Store.inMemory()
         }
         self.store = store
         self.routes = RouteService(store: store)
+        self.startupError = openError
         restoreOpenSession()
     }
 
