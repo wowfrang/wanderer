@@ -61,7 +61,7 @@ struct SummaryView: View {
 
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 18) {
                 GridRow {
-                    Stat(label: "Distance", value: Format.distance(session.distance))
+                    Stat(label: "Distance", value: Format.distance(session.walkedDistance))
                     Stat(label: "Time", value: Format.clock(engine.elapsed()))
                 }
                 GridRow {
@@ -128,6 +128,10 @@ private struct SummaryMap: View {
     var body: some View {
         let statuses = engine.statuses
         Map(position: $position, interactionModes: [.pan, .zoom]) {
+            ForEach(Array(PathGaps.connectors(engine.path).enumerated()), id: \.offset) { _, gap in
+                MapPolyline(coordinates: gap.map(\.cl))
+                    .stroke(Color.signal.opacity(0.45), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [0.5, 7]))
+            }
             ForEach(Array(engine.path.filter { $0.count > 1 }.enumerated()), id: \.offset) { _, segment in
                 MapPolyline(coordinates: segment.map(\.cl))
                     .stroke(Color.signal, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))

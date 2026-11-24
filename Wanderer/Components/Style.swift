@@ -110,3 +110,15 @@ enum DayFormat {
         return f.string(from: d)
     }
 }
+
+enum PathGaps {
+    /// Two-point lines joining the end of each walked segment to the start of the next.
+    static func connectors(_ segments: [[Coordinate]]) -> [[Coordinate]] {
+        let nonEmpty = segments.filter { !$0.isEmpty }
+        guard nonEmpty.count > 1 else { return [] }
+        return (1..<nonEmpty.count).compactMap { i in
+            guard let a = nonEmpty[i - 1].last, let b = nonEmpty[i].first, Geo.distance(a, b) > 10 else { return nil }
+            return [a, b]
+        }
+    }
+}

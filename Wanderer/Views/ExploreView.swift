@@ -104,6 +104,11 @@ struct ExploreView: View {
                     .stroke(Color.signal.opacity(0.55), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round, dash: [1, 8]))
             }
             // Where you've actually been: solid and confident.
+            // Gaps while GPS was off (phone in pocket): a faint dotted link, not a claim.
+            ForEach(Array(PathGaps.connectors(live.path).enumerated()), id: \.offset) { _, gap in
+                MapPolyline(coordinates: gap.map(\.cl))
+                    .stroke(Color.signal.opacity(0.45), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [0.5, 7]))
+            }
             ForEach(Array(live.path.filter { $0.count > 1 }.enumerated()), id: \.offset) { _, segment in
                 MapPolyline(coordinates: segment.map(\.cl))
                     .stroke(Color.signal, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
@@ -182,6 +187,10 @@ struct ExploreView: View {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
             }
         }
+        if live.lastAutoVisit == nil, let here = live.nearbyPendingPlace {
+            Banner(text: "You're at \(here.name)", action: "Visited") { live.mark(here, .visited) }
+                .transition(.move(edge: .top).combined(with: .opacity))
+        }
         if let visit = live.lastAutoVisit {
             Banner(text: "Visited \(visit.placeName)", action: "Undo") { live.undoLastAutoVisit() }
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -195,7 +204,7 @@ struct ExploreView: View {
             nextStop
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 HStack(alignment: .top, spacing: 8) {
-                    Stat(label: "Walked", value: Format.distance(live.session.distance))
+                    Stat(label: "Walked", value: Format.distance(live.walkedDistance))
                     Stat(label: "Time", value: Format.clock(live.elapsed(at: context.date)))
                     Stat(label: "Steps", value: live.steps.map { $0.formatted() } ?? "–")
                     Stat(label: "Places", value: "\(live.visitedCount)/\(live.places.count)")

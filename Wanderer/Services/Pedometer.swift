@@ -11,28 +11,38 @@ final class Pedometer {
     static var isDenied: Bool { [.denied, .restricted].contains(CMPedometer.authorizationStatus()) }
     static var isUsable: Bool { isSupported && !isDenied }
 
-    /// Total steps across intervals (pauses excluded). nil if any query fails.
-    func steps(in intervals: [(Date, Date)]) async -> Int? {
+    struct Reading {
+        var steps: Int
+        /// Metres, as estimated by the motion coprocessor (calibrated by iOS over time).
+        var distance: Double?
+    }
+
+    /// Totals across intervals (pauses excluded). nil if any query fails.
+    func reading(in intervals: [(Date, Date)]) async -> Reading? {
         guard Self.isUsable else { return nil }
-        var total = 0
+        var total = Reading(steps: 0, distance: nil)
         for (start, end) in intervals {
-            let count: Int? = await withCheckedContinuation { continuation in
+            let r: Reading? = await withCheckedContinuation { continuation in
                 pedometer.queryPedometerData(from: start, to: end) { data, error in
-                    continuation.resume(returning: error == nil ? data?.numberOfSteps.intValue ?? 0 : nil)
+                    guard error == nil else { return continuation.resume(returning: nil) }
+                    continuation.resume(returning: Reading(steps: data?.numberOfSteps.intValue ?? 0,
+                                                           distance: data?.distance?.doubleValue))
                 }
             }
-            guard let count else { return nil }
-            total += count
+            guard let r else { return nil }
+            total.steps += r.steps
+            if let d = r.distance { total.distance = (total.distance ?? 0) + d }
         }
         return total
     }
 
     /// Live cumulative steps since `start` (which may be in the past).
-    func startLive(from start: Date, handler: @escaping @MainActor (Int) -> Void) {
+    func startLive(from start: Date, handler: @escaping @MainActor (Reading) -> Void) {
         guard Self.isUsable else { return }
         pedometer.startUpdates(from: start) { data, _ in
-            guard let steps = data?.numberOfSteps.intValue else { return }
-            Task { @MainActor in handler(steps) }
+            guard let data else { return }
+            let reading = Reading(steps: data.numberOfSteps.intValue, distance: data.distance?.doubleValue)
+            Task { @MainActor in handler(reading) }
         }
     }
 

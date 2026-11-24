@@ -138,7 +138,7 @@ private struct HistoryRow: View {
             HStack(spacing: 6) {
                 Text(session.startedAt.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                 Text("·")
-                Text(Format.distance(session.distance))
+                Text(Format.distance(session.walkedDistance))
                 if let end = session.endedAt {
                     Text("·")
                     Text(Format.duration(end.timeIntervalSince(session.startedAt)))

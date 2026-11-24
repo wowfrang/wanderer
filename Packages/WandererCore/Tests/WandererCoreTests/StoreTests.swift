@@ -98,3 +98,27 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(events.first?.placeId)
     }
 }
+
+final class MigrationV2Tests: XCTestCase {
+    func testV1DatabaseUpgradesAndKeepsSessions() throws {
+        let path = NSTemporaryDirectory() + "wanderer-v1-\(UUID().uuidString).sqlite"
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        do {
+            // A database created by the first release (schema v1 only).
+            let v1 = try Store(path: path, migrations: Array(Migrations.all.prefix(1)))
+            let trip = Trip(name: "Milan"); try v1.save(trip)
+            let day = try v1.addDay(tripId: trip.id, name: "D")
+            try v1.db.run("INSERT INTO sessions (id, day_id, status, started_at, distance, steps) VALUES ('s1', ?, 'finished', 0, 1234, 2000)", day.id)
+        }
+        let store = try Store(path: path)
+        XCTAssertEqual(store.schemaVersion, Migrations.all.count)
+        let s = try XCTUnwrap(store.session(id: "s1"))
+        XCTAssertEqual(s.distance, 1234)
+        XCTAssertNil(s.pedometerDistance)
+        XCTAssertEqual(s.walkedDistance, 1234)
+        var updated = s
+        updated.pedometerDistance = 1500
+        try store.save(updated)
+        XCTAssertEqual(try store.session(id: "s1")?.walkedDistance, 1500)
+    }
+}

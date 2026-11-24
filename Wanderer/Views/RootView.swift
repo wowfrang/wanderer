@@ -39,7 +39,11 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { model.live?.appBecameActive() }
+            switch phase {
+            case .active: model.live?.appBecameActive()
+            case .background: model.live?.appEnteredBackground()
+            default: break
+            }
         }
         .alert("Storage problem", isPresented: Binding(get: { model.startupError != nil }, set: { if !$0 { model.startupError = nil } })) {
             Button("OK", role: .cancel) {}

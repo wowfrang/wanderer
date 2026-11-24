@@ -155,7 +155,7 @@ public final class SessionEngine {
         if let i = pauses.lastIndex(where: { $0.resumedAt == nil }) { pauses[i].resumedAt = date }
     }
 
-    public func finish(at date: Date = .now, steps: Int?) throws {
+    public func finish(at date: Date = .now, steps: Int?, pedometerDistance: Double? = nil) throws {
         guard session.status != .finished else { return }
         if session.status == .paused {
             try store.closePause(sessionId: session.id, at: date)
@@ -164,12 +164,14 @@ public final class SessionEngine {
         session.status = .finished
         session.endedAt = date
         if let steps { session.steps = steps }
+        if let pedometerDistance { session.pedometerDistance = pedometerDistance }
         try store.save(session)
     }
 
-    public func updateSteps(_ steps: Int?) throws {
-        guard let steps, steps != session.steps else { return }
+    public func updateSteps(_ steps: Int?, distance: Double? = nil) throws {
+        guard let steps, steps != session.steps || distance != session.pedometerDistance else { return }
         session.steps = steps
+        if let distance { session.pedometerDistance = distance }
         try store.save(session)
     }
 

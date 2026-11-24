@@ -24,6 +24,11 @@ final class AppSettings {
     var mapsApp: MapsApp {
         didSet { defaults.set(mapsApp.rawValue, forKey: "mapsApp") }
     }
+    /// Keep GPS on with the screen locked. Off by default to save battery: steps and
+    /// distance still count via the pedometer, and the path resumes when you open the app.
+    var backgroundTracking: Bool {
+        didSet { defaults.set(backgroundTracking, forKey: "backgroundTracking") }
+    }
     var notifyOnVisit: Bool {
         didSet { defaults.set(notifyOnVisit, forKey: "notifyOnVisit") }
     }
@@ -39,6 +44,7 @@ final class AppSettings {
         walkingSpeed = speed > 0 ? speed : 1.3
         mapsApp = MapsApp(rawValue: defaults.string(forKey: "mapsApp") ?? "") ?? .apple
         notifyOnVisit = defaults.object(forKey: "notifyOnVisit") as? Bool ?? true
+        backgroundTracking = defaults.bool(forKey: "backgroundTracking")
     }
 
     private func save<T: Encodable>(_ value: T, key: String) {

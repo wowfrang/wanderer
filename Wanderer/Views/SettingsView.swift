@@ -17,7 +17,18 @@ struct SettingsView: View {
                         LabeledContent("Walking pace", value: String(format: "%.1f km/h", settings.walkingSpeed * 3.6))
                         Slider(value: $settings.walkingSpeed, in: 0.8...1.8, step: 0.05)
                     }
+                }
+
+                Section {
+                    Toggle("Track with the screen locked", isOn: $settings.backgroundTracking)
                     Toggle("Notify when a visit is detected", isOn: $settings.notifyOnVisit)
+                        .disabled(!settings.backgroundTracking)
+                } header: {
+                    Text("Battery")
+                } footer: {
+                    Text(settings.backgroundTracking
+                         ? "GPS keeps running in your pocket at reduced accuracy, so the full route is drawn and visits are detected while the phone is locked. Uses noticeably more battery."
+                         : "GPS only runs while Wanderer is open on screen. Steps and walking distance still count in your pocket via the motion sensor, which costs almost no battery. Visits are detected while the app is open, or tap I'm here.")
                 }
 
                 Section {
@@ -46,6 +57,7 @@ struct SettingsView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
             .onChange(of: settings.detection) { _, config in model.live?.updateDetection(config) }
+            .onChange(of: settings.backgroundTracking) { _, _ in model.live?.backgroundTrackingSettingChanged() }
         }
     }
 

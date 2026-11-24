@@ -125,12 +125,15 @@ public struct ExplorationSession: Identifiable, Hashable, Sendable {
     public var distance: Double
     /// nil when step counting is unavailable or not permitted.
     public var steps: Int?
+    /// Walking distance measured by the motion coprocessor. Unlike `distance` (GPS path), it
+    /// keeps counting while GPS is off in the pocket, at no battery cost.
+    public var pedometerDistance: Double?
     /// Manually chosen next destination, overriding the automatic choice.
     public var targetPlaceId: String?
 
     public init(id: String = UUID().uuidString, dayId: String, status: SessionStatus = .active,
                 startedAt: Date = .now, endedAt: Date? = nil, distance: Double = 0, steps: Int? = nil,
-                targetPlaceId: String? = nil) {
+                pedometerDistance: Double? = nil, targetPlaceId: String? = nil) {
         self.id = id
         self.dayId = dayId
         self.status = status
@@ -138,7 +141,15 @@ public struct ExplorationSession: Identifiable, Hashable, Sendable {
         self.endedAt = endedAt
         self.distance = distance
         self.steps = steps
+        self.pedometerDistance = pedometerDistance
         self.targetPlaceId = targetPlaceId
+    }
+
+    /// Best estimate of how far you walked: the pedometer covers time with GPS off; the GPS
+    /// path is the fallback when motion data isn't available.
+    public var walkedDistance: Double {
+        guard let p = pedometerDistance, p > 0 else { return distance }
+        return max(p, distance)
     }
 }
 

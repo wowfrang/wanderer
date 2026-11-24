@@ -23,7 +23,8 @@ final class LiveSession {
 
     private(set) var currentLocation: CLLocation?
     private(set) var steps: Int?
-    private var stepsBase = 0
+    private(set) var pedometerDistance: Double?
+    private var stepsBase = Pedometer.Reading(steps: 0, distance: nil)
     /// Walking route from where you are to the next stop.
     private(set) var legToNext: RouteLeg?
     private var legOrigin: Coordinate?
@@ -84,14 +85,26 @@ final class LiveSession {
         locationDenied = tracker.isDenied
         if model.settings.notifyOnVisit { VisitNotifier.requestPermission() }
         if isRestored { engine.markTrackingGap() }
-        if session.status == .active {
-            tracker.start()
-            startSteps()
-        } else if session.status == .paused {
-            tracker.startPreview()
-            Task { await refreshSteps() }
-        }
+        isForeground = UIApplication.shared.applicationState != .background
+        updateTracking()
+        if session.status == .active { startSteps() }
+        Task { await refreshSteps() }
         Task { await refreshRoutes() }
+    }
+
+    /// Whether the app is on screen. GPS runs only then, unless background tracking is on.
+    private var isForeground = true
+
+    /// Chooses the cheapest location mode that serves what's needed right now.
+    private func updateTracking() {
+        guard session.status == .active else { tracker.stop(); return }
+        if isForeground {
+            tracker.startForeground()
+        } else if model.settings.backgroundTracking {
+            tracker.startBackground()
+        } else {
+            tracker.stop()
+        }
     }
 
     func stopServices() {
@@ -162,9 +175,47 @@ final class LiveSession {
     }
 
     func appBecameActive() {
+        let wasTracking = tracker.isTracking
+        isForeground = true
+        if session.status == .active {
+            // GPS was off in the pocket: the path continues in a new segment.
+            if !wasTracking { engine.markTrackingGap() }
+            updateTracking()
+            startSteps()
+        }
         legOrigin = nil // force a fresh leg
         updateLegToNextIfNeeded()
         Task { await refreshSteps() }
+    }
+
+    func appEnteredBackground() {
+        isForeground = false
+        updateTracking()
+        pedometer.stopLive() // live updates aren't delivered in the background anyway
+        Task { await refreshSteps() }
+    }
+
+    func backgroundTrackingSettingChanged() {
+        updateTracking()
+    }
+
+    /// A pending place you're standing at right now, for a one-tap "Visited".
+    /// Cheap stand-in for dwell detection when you've only just pulled the phone out.
+    var nearbyPendingPlace: Place? {
+        guard let here = currentLocation, here.horizontalAccuracy >= 0, here.horizontalAccuracy < 50,
+              Date().timeIntervalSince(here.timestamp) < 60 else { return nil }
+        let config = model.settings.detection
+        let c = Coordinate(here.coordinate)
+        return locatedPlaces
+            .filter { status($0) == .pending }
+            .map { ($0, Geo.distance(c, $0.coordinate!)) }
+            .filter { $0.1 - min(here.horizontalAccuracy, config.accuracyAllowance) <= ($0.0.radius ?? config.arrivalRadius) }
+            .min { $0.1 < $1.1 }?.0
+    }
+
+    /// Best current walking distance: pedometer (counts in the pocket) or GPS path.
+    var walkedDistance: Double {
+        max(pedometerDistance ?? 0, session.walkedDistance)
     }
 
     /// Remaining stops in the order you'll walk them, starting with the next one.
@@ -183,23 +234,27 @@ final class LiveSession {
 
     private func startSteps() {
         guard Pedometer.isUsable else { steps = nil; return }
+        pedometer.stopLive()
         let intervals = engine.activeIntervals()
         let closed = intervals.dropLast()
         let currentStart = intervals.last?.0 ?? session.startedAt
         Task {
-            stepsBase = await pedometer.steps(in: Array(closed)) ?? 0
+            stepsBase = await pedometer.reading(in: Array(closed)) ?? Pedometer.Reading(steps: 0, distance: nil)
             pedometer.startLive(from: currentStart) { [weak self] live in
                 guard let self else { return }
-                self.steps = self.stepsBase + live
+                self.steps = self.stepsBase.steps + live.steps
+                if let d = live.distance { self.pedometerDistance = (self.stepsBase.distance ?? 0) + d }
             }
         }
     }
 
     private func refreshSteps() async {
         guard Pedometer.isUsable else { steps = nil; return }
-        if let total = await pedometer.steps(in: engine.activeIntervals()) {
-            steps = total
-            try? engine.updateSteps(total)
+        if let total = await pedometer.reading(in: engine.activeIntervals()) {
+            steps = total.steps
+            pedometerDistance = total.distance
+            try? engine.updateSteps(total.steps, distance: total.distance)
+            session = engine.session
         }
     }
 
@@ -208,16 +263,15 @@ final class LiveSession {
     func pause() {
         try? engine.pause()
         pedometer.stopLive()
-        tracker.stop()
-        tracker.startPreview() // keep the blue dot while the screen is on
         sync()
+        updateTracking() // paused: GPS off
         Task { await refreshSteps() }
     }
 
     func resume() {
         try? engine.resume()
-        tracker.start()
         sync()
+        updateTracking()
         Task {
             await refreshSteps()
             startSteps()
@@ -229,8 +283,8 @@ final class LiveSession {
         tracker.stop()
         let end = Date()
         let intervals = SessionClock.activeIntervals(start: session.startedAt, end: end, pauses: engine.pauses)
-        let total = Pedometer.isUsable ? await pedometer.steps(in: intervals) : nil
-        try? engine.finish(at: end, steps: total ?? steps)
+        let total = Pedometer.isUsable ? await pedometer.reading(in: intervals) : nil
+        try? engine.finish(at: end, steps: total?.steps ?? steps, pedometerDistance: total?.distance ?? pedometerDistance)
         sync()
     }
 

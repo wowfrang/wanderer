@@ -91,6 +91,10 @@ public enum Migrations {
         );
         CREATE INDEX visits_session ON visit_events(session_id, seq);
         """,
+        // v2: pedometer distance, so walking with GPS off still counts.
+        """
+        ALTER TABLE sessions ADD COLUMN pedometer_distance REAL;
+        """,
     ]
 }
 
@@ -290,20 +294,23 @@ public final class Store {
 
     // MARK: Sessions
 
-    private static let sessionColumns = "id, day_id, status, started_at, ended_at, distance, steps, target_place_id"
+    private static let sessionColumns = "id, day_id, status, started_at, ended_at, distance, steps, target_place_id, pedometer_distance"
     private func session(_ r: Row) -> ExplorationSession {
         ExplorationSession(id: r.string(0), dayId: r.string(1), status: SessionStatus(rawValue: r.string(2)) ?? .finished,
                            startedAt: r.date(3), endedAt: r.optionalDate(4), distance: r.double(5),
-                           steps: r.optionalInt(6), targetPlaceId: r.optionalString(7))
+                           steps: r.optionalInt(6), pedometerDistance: r.optionalDouble(8),
+                           targetPlaceId: r.optionalString(7))
     }
 
     public func save(_ s: ExplorationSession) throws {
         try db.run("""
-            INSERT INTO sessions (id, day_id, status, started_at, ended_at, distance, steps, target_place_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO sessions (id, day_id, status, started_at, ended_at, distance, steps, target_place_id, pedometer_distance)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET status = excluded.status, ended_at = excluded.ended_at,
-                distance = excluded.distance, steps = excluded.steps, target_place_id = excluded.target_place_id
-            """, params: [s.id, s.dayId, s.status.rawValue, s.startedAt, s.endedAt, s.distance, s.steps, s.targetPlaceId])
+                distance = excluded.distance, steps = excluded.steps, target_place_id = excluded.target_place_id,
+                pedometer_distance = excluded.pedometer_distance
+            """, params: [s.id, s.dayId, s.status.rawValue, s.startedAt, s.endedAt, s.distance, s.steps,
+                          s.targetPlaceId, s.pedometerDistance])
     }
 
     public func session(id: String) throws -> ExplorationSession? {
@@ -322,7 +329,7 @@ public final class Store {
 
     public func finishedSessions(tripId: String) throws -> [ExplorationSession] {
         try db.query("""
-            SELECT s.id, s.day_id, s.status, s.started_at, s.ended_at, s.distance, s.steps, s.target_place_id
+            SELECT s.id, s.day_id, s.status, s.started_at, s.ended_at, s.distance, s.steps, s.target_place_id, s.pedometer_distance
             FROM sessions s JOIN days d ON d.id = s.day_id
             WHERE d.trip_id = ? AND s.status = 'finished' ORDER BY s.started_at DESC
             """, tripId, map: session)

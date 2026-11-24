@@ -1,13 +1,13 @@
 import Foundation
 import CoreLocation
 
-/// Thin wrapper around CLLocationManager configured for walking with the phone in a pocket.
+/// Thin wrapper around CLLocationManager, built to be gentle on the battery.
 ///
-/// "When In Use" permission is enough: because tracking starts while the app is in the
-/// foreground and `allowsBackgroundLocationUpdates` is on (with the `location` background
-/// mode), iOS keeps delivering fixes when the screen is locked and shows the blue location
-/// indicator. If iOS terminates the app, tracking stops until it is reopened; the session
-/// resumes then with a gap in the path.
+/// By default GPS only runs while the exploration screen is open in the foreground. When the
+/// app goes to the background, updates stop entirely; the pedometer keeps counting steps and
+/// distance for free. With "Track in background" on, updates continue with the screen locked
+/// (this needs the `location` background mode, already in Info.plist) but at ~10 m accuracy
+/// with a 15 m distance filter and automatic pausing when you stand still for a while.
 @MainActor
 final class LocationTracker: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
@@ -18,24 +18,36 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.activityType = .fitness
-        manager.distanceFilter = 4
-        manager.pausesLocationUpdatesAutomatically = false
     }
 
     var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
-    var isDenied: Bool { [.denied, .restricted].contains(manager.authorizationStatus) }
+    var isDenied: Bool { manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted }
     var hasReducedAccuracy: Bool { manager.accuracyAuthorization == .reducedAccuracy }
 
     func requestPermission() {
         if manager.authorizationStatus == .notDetermined { manager.requestWhenInUseAuthorization() }
     }
 
-    func start() {
+    /// Precise tracking while the app is on screen.
+    func startForeground() {
+        requestPermission()
+        manager.allowsBackgroundLocationUpdates = false
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 5
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.startUpdatingLocation()
+        isTracking = true
+    }
+
+    /// Opt-in pocket tracking: cheaper accuracy, larger distance filter, auto-pause.
+    func startBackground() {
         requestPermission()
         manager.allowsBackgroundLocationUpdates = true
         manager.showsBackgroundLocationIndicator = true
+        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        manager.distanceFilter = 15
+        manager.pausesLocationUpdatesAutomatically = true
         manager.startUpdatingLocation()
         isTracking = true
     }
@@ -44,12 +56,6 @@ final class LocationTracker: NSObject, CLLocationManagerDelegate {
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
         isTracking = false
-    }
-
-    /// Foreground-only updates for showing the blue dot while planning.
-    func startPreview() {
-        requestPermission()
-        manager.startUpdatingLocation()
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
