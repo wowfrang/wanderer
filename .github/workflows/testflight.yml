@@ -42,6 +42,17 @@ jobs:
           mkdir -p "$RUNNER_TEMP/keys"
           printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
 
+      - name: Ensure TestFlight testers
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TESTER_EMAILS: ${{ vars.TESTFLIGHT_TESTERS || 'erik.rothoff@gmail.com' }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet "pyjwt[crypto]"
+          ASC_KEY_PATH="$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" "$RUNNER_TEMP/venv/bin/python" scripts/testflight_testers.py
+
       - name: Archive and upload
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
