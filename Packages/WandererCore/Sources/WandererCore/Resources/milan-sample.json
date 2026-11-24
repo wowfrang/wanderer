@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "trip_name": "Milan",
+  "days": [
+    {
+      "name": "Ticinese to Brera",
+      "places": [
+        {
+          "name": "Via Gian Giacomo Mora",
+          "address": "Via Gian Giacomo Mora, 20123 Milano MI, Italy",
+          "category": "street",
+          "description": "Small independent shops and studios just off Corso di Porta Ticinese.",
+          "visit_minutes": 30,
+          "radius_m": 60
+        },
+        {
+          "name": "Via Cesare Correnti",
+          "address": "Via Cesare Correnti, 20123 Milano MI, Italy",
+          "category": "street",
+          "description": "Neighbourhood street between Carrobbio and Sant'Ambrogio.",
+          "visit_minutes": 20,
+          "radius_m": 60
+        },
+        {
+          "name": "Via Santa Marta",
+          "address": "Via Santa Marta, 20123 Milano MI, Italy",
+          "category": "street",
+          "description": "Cinque Vie, the quiet medieval quarter, with cafés and small galleries.",
+          "visit_minutes": 30,
+          "radius_m": 50
+        },
+        {
+          "name": "Via San Maurilio",
+          "address": "Via San Maurilio, 20123 Milano MI, Italy",
+          "category": "street",
+          "description": "Narrow street in the Cinque Vie, close to Via Torino.",
+          "visit_minutes": 15,
+          "radius_m": 50
+        },
+        {
+          "name": "Brera",
+          "address": "Via Brera, 20121 Milano MI, Italy",
+          "category": "neighbourhood",
+          "description": "Cobbled streets, the Pinacoteca and the botanical garden.",
+          "visit_minutes": 90,
+          "radius_m": 80
+        }
+      ]
+    }
+  ]
+}
