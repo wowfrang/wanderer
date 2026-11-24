@@ -43,7 +43,7 @@ Only `name` is required per place. `address` is strongly recommended because it'
 
 ## Installing on your iPhone
 
-You already have a paid Apple Developer account (the App Store Connect app *Wanderer*, bundle ID `wanderer.wowfrang.com`). No extra capabilities need to be ticked on the App ID: background location is a background mode in `Info.plist`, not a capability.
+You already have a paid Apple Developer account (the App Store Connect app *Wanderer*, bundle ID `wander.wowfrang.com`). No extra capabilities need to be ticked on the App ID: background location is a background mode in `Info.plist`, not a capability.
 
 ### One-time setup
 

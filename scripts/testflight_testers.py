@@ -39,7 +39,7 @@ def call(method, path, body=None, query=None):
 
 
 def main():
-    bundle = os.environ.get("BUNDLE_ID", "wanderer.wowfrang.com")
+    bundle = os.environ.get("BUNDLE_ID", "wander.wowfrang.com")
     emails = [e.strip() for e in os.environ.get("TESTER_EMAILS", "").split(",") if e.strip()]
     group_name = os.environ.get("BETA_GROUP", "Wanderer team")
     if not emails:

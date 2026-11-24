@@ -2,7 +2,7 @@
 //   DEVELOPMENT_TEAM = ABCDE12345
 // Find the ID at https://developer.apple.com/account → Membership details → Team ID.
 
-PRODUCT_BUNDLE_IDENTIFIER = wanderer.wowfrang.com
+PRODUCT_BUNDLE_IDENTIFIER = wander.wowfrang.com
 MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
 
