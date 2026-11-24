@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 BUILD_NUMBER="${BUILD_NUMBER:-$(date -u +%y%m%d.%H%M)}"
-ARCHIVE="build/Wanderer-$BUILD_NUMBER.xcarchive"
+ARCHIVE="build/Wanderer-${BUILD_NUMBER}.xcarchive"
 
 AUTH=()
 if [[ -n "${ASC_KEY_ID:-}" ]]; then
@@ -20,14 +20,14 @@ if [[ -n "${APPLE_TEAM_ID:-}" ]]; then
   TEAM=(DEVELOPMENT_TEAM="$APPLE_TEAM_ID")
 fi
 
-echo "Archiving build $BUILD_NUMBER…"
+echo "Archiving build ${BUILD_NUMBER}..."
 xcodebuild -project Wanderer.xcodeproj -scheme Wanderer -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$ARCHIVE" \
   CURRENT_PROJECT_VERSION="$BUILD_NUMBER" ${TEAM[@]+"${TEAM[@]}"} \
   -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} archive
 
-echo "Uploading to App Store Connect…"
+echo "Uploading to App Store Connect..."
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist Config/ExportOptions.plist \
   -exportPath build/export -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"}
 
-echo "Uploaded build $BUILD_NUMBER. It appears in TestFlight after processing (usually 5–15 minutes)."
+echo "Uploaded build ${BUILD_NUMBER}. It appears in TestFlight after processing (usually 5-15 minutes)."

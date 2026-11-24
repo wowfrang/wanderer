@@ -48,6 +48,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           TESTER_EMAILS: ${{ vars.TESTFLIGHT_TESTERS || 'erik.rothoff@gmail.com' }}
+          ASC_APP_ID: '6838663568'
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet "pyjwt[crypto]"

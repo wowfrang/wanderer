@@ -46,10 +46,17 @@ def main():
         print("No TESTER_EMAILS set; nothing to do.")
         return
 
-    apps = call("GET", "/apps", query={"filter[bundleId]": bundle})["data"]
-    if not apps:
-        sys.exit(f"No App Store Connect app with bundle ID {bundle}")
-    app_id = apps[0]["id"]
+    app_id = os.environ.get("ASC_APP_ID")
+    if app_id:
+        app = call("GET", f"/apps/{app_id}")["data"]
+        print(f"App {app_id}: {app['attributes'].get('name')} ({app['attributes'].get('bundleId')})")
+    else:
+        apps = call("GET", "/apps", query={"filter[bundleId]": bundle})["data"]
+        if not apps:
+            listed = call("GET", "/apps", query={"limit": 50})["data"]
+            found = ", ".join(f"{a['id']}={a['attributes'].get('bundleId')}" for a in listed) or "none"
+            sys.exit(f"No App Store Connect app with bundle ID {bundle}. Apps this key can see: {found}")
+        app_id = apps[0]["id"]
 
     groups = call("GET", f"/apps/{app_id}/betaGroups", query={"limit": 200})["data"]
     group = next((g for g in groups if g["attributes"]["name"] == group_name), None)
